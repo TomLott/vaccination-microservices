@@ -1,0 +1,2 @@
+create table if not exists qr_code (id  bigserial not null, created timestamp, document_number varchar(255), vaccine_name varchar(255), qr_code varchar(255), updated timestamp, vaccination_date date, vaccination_uuid varchar(255), primary key (id));
+alter table qr_code add constraint UK_8o1rkj3ouy5eyg34xibn4a55 unique (vaccination_uuid);

@@ -1,0 +1,54 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: gateway
+  cloud:
+    consul:
+      enabled: true
+      host: consul
+      port: 8500
+      discovery:
+        register: false
+        register-health-check: false
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          url-expression: "'lb:http://'+serviceId"
+      routes:
+        - id: medical-service-id
+          uri: lb://medical-service
+          predicates:
+            - Path=/api/v1/medical/**
+          filters:
+            - RewritePath=/api/v1/medical/(?<path>.*), /api/v1/$\{path}
+        - id: person-full-information-id
+          uri: lb://person-service
+          predicates:
+            - Path=/api/v1/info/{passport}
+          filters:
+            - RewritePath=/api/v1/info/(?<path>.*), /api/v1/person/full-info?passport=$\{path}
+        - id: person-service-id
+          uri: lb://person-service
+          predicates:
+            - Path=/api/v1/person/**
+          filters:
+            - RewritePath=/api/v1/person/(?<path>.*), /api/v1/person/$\{path}
+        - id: qrcode-service-id
+          uri: lb://qrcode-service
+          predicates:
+            - Path=/api/v1/qr/**
+          filters:
+            - RewritePath=/api/v1/qr/(?<path>.*), /api/v1/qr/$\{path}
+  config:
+    import: "consul:"
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.ipc.netty: DEBUG
+    reactor.netty: DEBUG

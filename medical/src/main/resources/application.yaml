@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: medical-service
+  config:
+    import: "consul:"
+  cloud:
+    consul:
+      enabled: true
+      host: consul
+      port: 8500
+      discovery:
+        instance-id: ${spring.application.name}:${random.value}
+  datasource:
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      jobStore:
+        tablePrefix: 'QRTZ_'
+        misfireThreshold: 60000
+        clusterCheckinInterval: 5000
+      org:
+        quartz:
+          jobStore:
+            isClustered: true
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+          scheduler:
+            instanceId: 'AUTO'
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+server:
+  port: 8082

@@ -1,0 +1,156 @@
+version: '3.9'
+services:
+  consul:
+    image: consul:1.9.16
+    restart: always
+    container_name: "consul"
+    ports:
+      - '8500:8500'
+    networks:
+      - app-network
+  zookeeper:
+    restart: always
+    image: confluentinc/cp-zookeeper:6.2.4
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - '22181:2181'
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:6.2.4
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - '29092:29092'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - app-network
+
+#  api-gateway-app:
+#    image: 'docker-api-gateway-application:latest'
+#    build:
+#      context: api-gateway/src/main/docker/
+#    container_name: api-gateway-container
+#    ports:
+#      - "8080:8080"
+#    networks:
+#      - app-network
+#
+  api-gateway-app:
+    restart: always
+    build: api-gateway/src/main/docker/
+#    command: java -jar api-gateway.jar
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+  qrcode-app:
+    restart: always
+    build: qrcode/src/main/docker/
+#    container_name: qrcode-container
+    depends_on:
+      - qrcode-postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://qrcode-postgres/qrcode
+      - SPRING_DATASOURCE_USERNAME=td
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_HIBERNATE_DDL_AUT0=none
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+    ports:
+      - "8083:8083"
+    networks:
+      - app-network
+  qrcode-postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: "qrcode"
+      POSTGRES_USER: "td"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - ./qrcode/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./qrcode/data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    networks:
+      - app-network
+  medical-app:
+    build: medical/src/main/docker/
+#    container_name: medical-container
+    depends_on:
+      - medical-postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://medical-postgres/medical
+      - SPRING_DATASOURCE_USERNAME=td
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_HIBERNATE_DDL_AUT0=none
+      - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
+    networks:
+      - app-network
+    ports:
+      - "8082:8082"
+  medical-postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: "medical"
+      POSTGRES_USER: "td"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - ./medical/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./medical/data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - app-network
+  person-app:
+    build: person/src/main/docker/
+#    container_name: person-container
+    depends_on:
+      - person-postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://person-postgres/person
+      - SPRING_DATASOURCE_USERNAME=td
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_HIBERNATE_DDL_AUT0=none
+    networks:
+      - app-network
+    ports:
+      - "8081:8081"
+  person-postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: "person"
+      POSTGRES_USER: "td"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - ./person/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./person/data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  person.data:
+  person.sql:
+  medical.data:
+  medical.sql:
+  qrcode.data:
+  qrcode.sql:
